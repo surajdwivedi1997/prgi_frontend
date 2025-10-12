@@ -17,10 +17,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AlertCircle, CheckCircle2, FileText, Plus, Lock } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileText, Lock } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import Header from "@/components/layout/Header";
 import { useNavigate } from "react-router-dom";
+
+// ✅ Define expected API response structures (so `unknown` errors go away)
+interface CreateGrievanceResponse {
+  grievanceNumber: string;
+  message?: string;
+}
+interface GrievanceDetailResponse {
+  grievance: any;
+  comments: any[];
+}
 
 const GRIEVANCE_CATEGORIES = [
   { value: "DELAY", label: "Processing Delay" },
@@ -32,10 +42,13 @@ const GRIEVANCE_CATEGORIES = [
 
 export default function Grievances() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"submit" | "my-grievances">("my-grievances");
+  const [activeTab, setActiveTab] = useState<"submit" | "my-grievances">(
+    "my-grievances"
+  );
   const [myGrievances, setMyGrievances] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedGrievance, setSelectedGrievance] = useState<any>(null);
   const [comments, setComments] = useState<any[]>([]);
@@ -44,11 +57,11 @@ export default function Grievances() {
   // Get user email from localStorage
   const userEmail = localStorage.getItem("userEmail") || "";
 
-  // Form states - Initialize with user's email
+  // Form state (prefill email)
   const [formData, setFormData] = useState({
     applicationNumber: "",
     complainantName: "",
-    complainantEmail: userEmail, // Auto-fill with logged-in user's email
+    complainantEmail: userEmail,
     complainantPhone: "",
     category: "",
     subject: "",
@@ -62,12 +75,9 @@ export default function Grievances() {
     loadStats();
   }, []);
 
-  // Update email if it changes in localStorage (shouldn't happen, but for safety)
+  // keep email synced (defensive)
   useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
-      complainantEmail: userEmail
-    }));
+    setFormData((prev) => ({ ...prev, complainantEmail: userEmail }));
   }, [userEmail]);
 
   async function loadMyGrievances() {
@@ -88,31 +98,35 @@ export default function Grievances() {
     }
   }
 
+  // ✅ typed response for create
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    
+
     try {
-      const response = await apiFetch("/api/grievances/create", {
+      const response = (await apiFetch("/api/grievances/create", {
         method: "POST",
         body: JSON.stringify(formData),
-      });
+      })) as CreateGrievanceResponse;
+
+      if (!response?.grievanceNumber) {
+        throw new Error("Invalid response: missing grievance number");
+      }
 
       setSubmittedGrievanceNumber(response.grievanceNumber);
       setSubmitSuccess(true);
-      
-      // Reset form but keep the email
+
+      // reset but keep email
       setFormData({
         applicationNumber: "",
         complainantName: "",
-        complainantEmail: userEmail, // Keep user's email
+        complainantEmail: userEmail,
         complainantPhone: "",
         category: "",
         subject: "",
         description: "",
       });
 
-      // Reload grievances
       await loadMyGrievances();
       await loadStats();
     } catch (err: any) {
@@ -122,9 +136,13 @@ export default function Grievances() {
     }
   }
 
+  // ✅ typed response for detail
   async function viewGrievanceDetails(grievanceNumber: string) {
     try {
-      const data = await apiFetch(`/api/grievances/${grievanceNumber}`);
+      const data = (await apiFetch(
+        `/api/grievances/${grievanceNumber}`
+      )) as GrievanceDetailResponse;
+
       setSelectedGrievance(data.grievance);
       setComments(data.comments || []);
       setDetailOpen(true);
@@ -142,8 +160,11 @@ export default function Grievances() {
         body: JSON.stringify({ comment: newComment }),
       });
 
-      // Reload comments
-      const data = await apiFetch(`/api/grievances/${selectedGrievance.grievanceNumber}`);
+      // reload comments with typed response
+      const data = (await apiFetch(
+        `/api/grievances/${selectedGrievance.grievanceNumber}`
+      )) as GrievanceDetailResponse;
+
       setComments(data.comments || []);
       setNewComment("");
     } catch (err) {
@@ -153,27 +174,34 @@ export default function Grievances() {
 
   function getStatusColor(status: string) {
     switch (status) {
-      case "OPEN": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-      case "IN_PROGRESS": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-      case "RESOLVED": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-      case "CLOSED": return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
-      default: return "bg-gray-100 text-gray-800";
+      case "OPEN":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+      case "IN_PROGRESS":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
+      case "RESOLVED":
+        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+      case "CLOSED":
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   }
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Header */}
           <div>
             <h1 className="text-3xl font-bold">Grievance Management</h1>
-            <p className="text-muted-foreground">Submit and track your grievances</p>
+            <p className="text-muted-foreground">
+              Submit and track your grievances
+            </p>
           </div>
 
-          {/* Stats Cards */}
+          {/* Stats */}
           {stats && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card className="p-4">
@@ -182,15 +210,21 @@ export default function Grievances() {
               </Card>
               <Card className="p-4 border-l-4 border-l-blue-500">
                 <div className="text-sm text-muted-foreground">Open</div>
-                <div className="text-2xl font-bold text-blue-600">{stats.open || 0}</div>
+                <div className="text-2xl font-bold text-blue-600">
+                  {stats.open || 0}
+                </div>
               </Card>
               <Card className="p-4 border-l-4 border-l-yellow-500">
                 <div className="text-sm text-muted-foreground">In Progress</div>
-                <div className="text-2xl font-bold text-yellow-600">{stats.inProgress || 0}</div>
+                <div className="text-2xl font-bold text-yellow-600">
+                  {stats.inProgress || 0}
+                </div>
               </Card>
               <Card className="p-4 border-l-4 border-l-green-500">
                 <div className="text-sm text-muted-foreground">Resolved</div>
-                <div className="text-2xl font-bold text-green-600">{stats.resolved || 0}</div>
+                <div className="text-2xl font-bold text-green-600">
+                  {stats.resolved || 0}
+                </div>
               </Card>
             </div>
           )}
@@ -219,13 +253,15 @@ export default function Grievances() {
             </button>
           </div>
 
-          {/* My Grievances Tab */}
+          {/* My Grievances */}
           {activeTab === "my-grievances" && (
             <div className="space-y-4">
               {myGrievances.length === 0 ? (
                 <Card className="p-8 text-center">
                   <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">No grievances submitted yet</p>
+                  <p className="text-muted-foreground">
+                    No grievances submitted yet
+                  </p>
                   <Button
                     onClick={() => setActiveTab("submit")}
                     className="mt-4"
@@ -239,7 +275,9 @@ export default function Grievances() {
                   <Card
                     key={grievance.id}
                     className="p-4 cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => viewGrievanceDetails(grievance.grievanceNumber)}
+                    onClick={() =>
+                      viewGrievanceDetails(grievance.grievanceNumber)
+                    }
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -247,18 +285,25 @@ export default function Grievances() {
                           <span className="font-mono text-sm font-semibold">
                             {grievance.grievanceNumber}
                           </span>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(grievance.status)}`}>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                              grievance.status
+                            )}`}
+                          >
                             {grievance.status}
                           </span>
                         </div>
-                        <h3 className="font-semibold mb-1">{grievance.subject}</h3>
+                        <h3 className="font-semibold mb-1">
+                          {grievance.subject}
+                        </h3>
                         <p className="text-sm text-muted-foreground line-clamp-2">
                           {grievance.description}
                         </p>
                         <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                           <span>Category: {grievance.category}</span>
                           <span>
-                            Submitted: {new Date(grievance.createdAt).toLocaleDateString()}
+                            Submitted:{" "}
+                            {new Date(grievance.createdAt).toLocaleDateString()}
                           </span>
                         </div>
                       </div>
@@ -269,7 +314,7 @@ export default function Grievances() {
             </div>
           )}
 
-          {/* Submit Grievance Tab */}
+          {/* Submit New Grievance */}
           {activeTab === "submit" && (
             <Card className="p-6">
               {submitSuccess && (
@@ -281,7 +326,8 @@ export default function Grievances() {
                         Grievance Submitted Successfully!
                       </h3>
                       <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-                        Your grievance number is: <strong>{submittedGrievanceNumber}</strong>
+                        Your grievance number is:{" "}
+                        <strong>{submittedGrievanceNumber}</strong>
                       </p>
                       <p className="text-sm text-green-600 dark:text-green-400 mt-1">
                         You can track the status using this number.
@@ -302,22 +348,32 @@ export default function Grievances() {
                 </div>
               )}
 
+              {/* Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="applicationNumber">Application Number (Optional)</Label>
+                    <Label htmlFor="applicationNumber">
+                      Application Number (Optional)
+                    </Label>
                     <Input
                       id="applicationNumber"
                       placeholder="e.g., APP-2025-00123"
                       value={formData.applicationNumber}
-                      onChange={(e) => setFormData({ ...formData, applicationNumber: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          applicationNumber: e.target.value,
+                        })
+                      }
                     />
                   </div>
                   <div>
                     <Label htmlFor="category">Category *</Label>
                     <Select
                       value={formData.category}
-                      onValueChange={(value) => setFormData({ ...formData, category: value })}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, category: value })
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select category" />
@@ -340,7 +396,12 @@ export default function Grievances() {
                       id="complainantName"
                       placeholder="Enter your name"
                       value={formData.complainantName}
-                      onChange={(e) => setFormData({ ...formData, complainantName: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          complainantName: e.target.value,
+                        })
+                      }
                       required
                     />
                   </div>
@@ -367,7 +428,12 @@ export default function Grievances() {
                       id="complainantPhone"
                       placeholder="+91 1234567890"
                       value={formData.complainantPhone}
-                      onChange={(e) => setFormData({ ...formData, complainantPhone: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          complainantPhone: e.target.value,
+                        })
+                      }
                     />
                   </div>
                 </div>
@@ -378,7 +444,9 @@ export default function Grievances() {
                     id="subject"
                     placeholder="Brief subject of your grievance"
                     value={formData.subject}
-                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, subject: e.target.value })
+                    }
                     required
                   />
                 </div>
@@ -390,7 +458,9 @@ export default function Grievances() {
                     placeholder="Provide detailed description of your grievance..."
                     rows={6}
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
                     required
                   />
                 </div>
@@ -410,17 +480,26 @@ export default function Grievances() {
           <DialogHeader>
             <DialogTitle>Grievance Details</DialogTitle>
           </DialogHeader>
+
           {selectedGrievance && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-muted-foreground">Grievance Number:</span>
-                  <p className="font-mono font-semibold">{selectedGrievance.grievanceNumber}</p>
+                  <span className="text-muted-foreground">
+                    Grievance Number:
+                  </span>
+                  <p className="font-mono font-semibold">
+                    {selectedGrievance.grievanceNumber}
+                  </p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Status:</span>
                   <p>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedGrievance.status)}`}>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                        selectedGrievance.status
+                      )}`}
+                    >
                       {selectedGrievance.status}
                     </span>
                   </p>
@@ -441,13 +520,17 @@ export default function Grievances() {
               </div>
 
               <div>
-                <span className="text-muted-foreground text-sm">Description:</span>
+                <span className="text-muted-foreground text-sm">
+                  Description:
+                </span>
                 <p className="text-sm">{selectedGrievance.description}</p>
               </div>
 
               {selectedGrievance.resolution && (
                 <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <span className="text-muted-foreground text-sm">Resolution:</span>
+                  <span className="text-muted-foreground text-sm">
+                    Resolution:
+                  </span>
                   <p className="text-sm mt-1">{selectedGrievance.resolution}</p>
                 </div>
               )}
@@ -475,7 +558,7 @@ export default function Grievances() {
                     placeholder="Add a comment..."
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
-                    onKeyPress={(e) => {
+                    onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         handleAddComment();

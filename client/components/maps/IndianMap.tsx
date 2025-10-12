@@ -170,11 +170,12 @@ export default function IndiaMap() {
     setDistrictData([]);
 
     try {
-      const response = await fetch(
-        `http://localhost:8080/api/registrations/by-location?state=${encodeURIComponent(
-          stateName
-        )}&district=${encodeURIComponent(formattedDistrict)}`
-      );
+  const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  const response = await fetch(
+    `${BASE_URL}/api/registrations/by-location?state=${encodeURIComponent(
+      stateName
+    )}&district=${encodeURIComponent(formattedDistrict)}`
+  );
 
       if (!response.ok) throw new Error("Failed to fetch");
 

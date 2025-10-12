@@ -15,9 +15,9 @@ interface Publication {
   status: string;
   publisherName: string;
   editorName: string;
-  printerName: string;
-  publisherAddress: string;
-  printingPressAddress: string;
+  printerName?: string; // Made optional
+  publisherAddress?: string; // Made optional
+  printingPressAddress?: string; // Made optional
 }
 
 interface AnnualReturnForm {
@@ -88,7 +88,8 @@ export default function AnnualReturns() {
     try {
       setLoading(true);
       const data = await publicationApi.getMyPublications();
-      const approved = data.filter((pub: Publication) => pub.status === "APPROVED");
+      // Type assertion and filter
+      const approved = (data as Publication[]).filter((pub) => pub.status === "APPROVED");
       setPublications(approved);
     } catch (error) {
       console.error("Failed to load publications:", error);
@@ -106,10 +107,10 @@ export default function AnnualReturns() {
       rniNumber: pub.rniNumber,
       titleName: pub.titleName,
       publisherName: pub.publisherName,
-      publisherAddress: pub.publisherAddress,
+      publisherAddress: pub.publisherAddress || "",
       editorName: pub.editorName,
-      printerName: pub.printerName,
-      printingPressAddress: pub.printingPressAddress,
+      printerName: pub.printerName || "",
+      printingPressAddress: pub.printingPressAddress || "",
     });
   };
 
@@ -122,7 +123,10 @@ export default function AnnualReturns() {
     
     try {
       setSubmitting(true);
-      const response = await fetch("http://localhost:8080/api/annual-returns", {
+
+      const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+      const response = await fetch(`${BASE_URL}/api/annual-returns`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

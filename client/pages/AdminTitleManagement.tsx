@@ -53,15 +53,17 @@ export default function AdminTitleManagement() {
     console.log("=== loadTitles START ===");
     console.log("Token:", localStorage.getItem("jwtToken"));
     
-    try {
-      setLoading(true);
-      console.log("About to fetch /api/publications");
-      
-      const response = await fetch("http://localhost:8080/api/publications", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
-        },
-      });
+  try {
+  setLoading(true);
+  console.log("About to fetch /api/publications");
+
+  const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+  const response = await fetch(`${BASE_URL}/api/publications`, {
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
+    },
+  });
       
       console.log("Response received:", response.status, response.statusText);
       
@@ -117,23 +119,27 @@ export default function AdminTitleManagement() {
       return;
     }
 
-    try {
-      setActionLoading(true);
-      
-      const newStatus = 
-        modalAction === "approve" ? "APPROVED" :
-        modalAction === "reject" ? "REJECTED" :
-        "OBJECTED";
+   try {
+  setActionLoading(true);
 
-      const response = await fetch(
-        `http://localhost:8080/api/publications/${selectedTitle.id}/status?status=${newStatus}&remarks=${encodeURIComponent(remarks)}`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
-          },
-        }
-      );
+  const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+  const newStatus =
+    modalAction === "approve"
+      ? "APPROVED"
+      : modalAction === "reject"
+      ? "REJECTED"
+      : "OBJECTED";
+
+  const response = await fetch(
+    `${BASE_URL}/api/publications/${selectedTitle.id}/status?status=${newStatus}&remarks=${encodeURIComponent(remarks)}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
+      },
+    }
+  );
 
       if (response.ok) {
         alert(`Title ${modalAction === "approve" ? "approved" : modalAction === "reject" ? "rejected" : "marked with objection"} successfully`);

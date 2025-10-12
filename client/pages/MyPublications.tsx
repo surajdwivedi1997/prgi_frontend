@@ -6,18 +6,19 @@ import Header from "../components/layout/Header";
 import { useNavigate } from "react-router-dom";
 import { Loader2, FileText, Calendar, MapPin } from "lucide-react";
 
+// ✅ Make optional fields optional to match API response
 interface Publication {
   id: number;
   titleName: string;
-  language: string;
-  state: string;
-  district: string;
-  periodicity: string;
-  publicationType: string;
-  publisherName: string;
+  language?: string;
+  state?: string;
+  district?: string;
+  periodicity?: string;
+  publicationType?: string;
+  publisherName?: string;
   status: string;
-  rniNumber: string | null;
-  createdAt: string;
+  rniNumber?: string | null;
+  createdAt?: string;
 }
 
 export default function MyPublications() {
@@ -33,7 +34,8 @@ export default function MyPublications() {
     try {
       setLoading(true);
       const data = await publicationApi.getMyPublications();
-      setPublications(data);
+      // ✅ Safe cast since we know shape, but API may omit optional fields
+      setPublications(data as Publication[]);
     } catch (error) {
       console.error("Failed to load publications:", error);
     } finally {
@@ -107,25 +109,25 @@ export default function MyPublications() {
                     <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
                       <div>
                         <p className="text-sm text-muted-foreground">Type</p>
-                        <p className="font-medium">{pub.publicationType}</p>
+                        <p className="font-medium">{pub.publicationType || "—"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">
                           Periodicity
                         </p>
-                        <p className="font-medium">{pub.periodicity}</p>
+                        <p className="font-medium">{pub.periodicity || "—"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">
                           Language
                         </p>
-                        <p className="font-medium">{pub.language}</p>
+                        <p className="font-medium">{pub.language || "—"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">
                           Publisher
                         </p>
-                        <p className="font-medium">{pub.publisherName}</p>
+                        <p className="font-medium">{pub.publisherName || "—"}</p>
                       </div>
                     </div>
 
@@ -133,14 +135,16 @@ export default function MyPublications() {
                       <div className="flex items-center gap-1">
                         <MapPin className="h-4 w-4" />
                         <span>
-                          {pub.district}, {pub.state}
+                          {pub.district || "—"}, {pub.state || "—"}
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
                         <span>
                           Applied on{" "}
-                          {new Date(pub.createdAt).toLocaleDateString()}
+                          {pub.createdAt
+                            ? new Date(pub.createdAt).toLocaleDateString()
+                            : "—"}
                         </span>
                       </div>
                     </div>

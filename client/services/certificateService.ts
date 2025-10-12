@@ -1,16 +1,17 @@
 import { Publication } from "../types/certificate.types";
 
-const API_BASE_URL = "http://localhost:8080/api/certificates";
+// ✅ Environment-safe API base URL
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL
+    ? `${import.meta.env.VITE_API_BASE_URL}/api/certificates`
+    : "http://localhost:8080/api/certificates";
 
 export const certificateService = {
   // ✅ Fetch all approved publications (for generation list)
   async getApprovedPublications(): Promise<Publication[]> {
     try {
       const token = localStorage.getItem("jwtToken");
-      
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
+      if (!token) throw new Error("No authentication token found");
 
       console.log("Fetching approved publications...");
 
@@ -23,7 +24,11 @@ export const certificateService = {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Failed to fetch approved publications:", response.status, errorText);
+        console.error(
+          "Failed to fetch approved publications:",
+          response.status,
+          errorText
+        );
         throw new Error(`Failed to fetch approved publications: ${response.status}`);
       }
 
@@ -55,10 +60,7 @@ export const certificateService = {
   async generateCertificate(publicationId: number): Promise<Publication> {
     try {
       const token = localStorage.getItem("jwtToken");
-      
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
+      if (!token) throw new Error("No authentication token found");
 
       console.log("Generating certificate for publication:", publicationId);
 
@@ -73,10 +75,11 @@ export const certificateService = {
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Failed to generate certificate:", response.status, errorText);
-        throw new Error(`Failed to generate certificate: ${response.status} - ${errorText}`);
+        throw new Error(
+          `Failed to generate certificate: ${response.status} - ${errorText}`
+        );
       }
 
-      // Backend returns CertificateResponse, not full Publication
       const res = await response.json();
       console.log("Certificate generated successfully:", res.certificateNumber);
 
@@ -105,10 +108,7 @@ export const certificateService = {
   async getAllCertificates(): Promise<Publication[]> {
     try {
       const token = localStorage.getItem("jwtToken");
-      
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
+      if (!token) throw new Error("No authentication token found");
 
       console.log("Fetching all certificates...");
 
@@ -135,17 +135,13 @@ export const certificateService = {
     }
   },
 
-  // ✅ Download certificate PDF with proper file download
-  async downloadCertificate(certificateNumber: string): Promise<void> {
+  // ✅ Download certificate PDF (returns Blob)
+  async downloadCertificate(certificateNumber: string): Promise<Blob> {
     try {
       const token = localStorage.getItem("jwtToken");
-      
-      if (!token) {
-        throw new Error("No authentication token found. Please login again.");
-      }
+      if (!token) throw new Error("No authentication token found. Please login again.");
 
       console.log("Downloading certificate:", certificateNumber);
-      console.log("Using token:", token.substring(0, 20) + "...");
 
       const response = await fetch(`${API_BASE_URL}/download/${certificateNumber}`, {
         method: "GET",
@@ -156,15 +152,11 @@ export const certificateService = {
       });
 
       console.log("Download response status:", response.status);
-      console.log("Download response headers:", Object.fromEntries(response.headers.entries()));
 
-      if (response.status === 403) {
+      if (response.status === 403)
         throw new Error("Access denied. You don't have permission to download this certificate.");
-      }
-
-      if (response.status === 404) {
+      if (response.status === 404)
         throw new Error("Certificate not found.");
-      }
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -172,31 +164,13 @@ export const certificateService = {
         throw new Error(`Failed to download certificate: ${response.status} - ${errorText}`);
       }
 
-      // Get the blob from response
       const blob = await response.blob();
       console.log("Blob received, size:", blob.size, "bytes");
 
-      if (blob.size === 0) {
-        throw new Error("Downloaded file is empty");
-      }
+      if (blob.size === 0) throw new Error("Downloaded file is empty");
 
-      // Create a download link
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Certificate_${certificateNumber}.pdf`;
-      
-      // Append to body, click, and remove
-      document.body.appendChild(a);
-      a.click();
-      
-      // Cleanup
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      }, 100);
-
-      console.log("Certificate downloaded successfully");
+      // ✅ Return Blob (not void) so AdminCertificateManagement can decide how to handle it
+      return blob;
     } catch (error) {
       console.error("Error downloading certificate:", error);
       throw error;
@@ -207,10 +181,7 @@ export const certificateService = {
   async previewCertificate(certificateNumber: string): Promise<void> {
     try {
       const token = localStorage.getItem("jwtToken");
-      
-      if (!token) {
-        throw new Error("No authentication token found");
-      }
+      if (!token) throw new Error("No authentication token found");
 
       console.log("Previewing certificate:", certificateNumber);
 
@@ -222,17 +193,13 @@ export const certificateService = {
         },
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to preview certificate: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Failed to preview certificate: ${response.status}`);
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      
-      // Open in new tab
+
       window.open(url, "_blank");
-      
-      // Cleanup after a delay
+
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
       }, 1000);

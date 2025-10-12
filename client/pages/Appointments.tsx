@@ -17,6 +17,11 @@ import { createAppointment, Appointment } from "@/lib/appointmentApi";
 import { Calendar, Clock, AlertCircle, CheckCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+interface AppointmentResponse {
+  tokenNumber: string;
+  message?: string;
+}
+
 export default function Appointments() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -45,19 +50,29 @@ export default function Appointments() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    
-    if (!formData.purposeOfVisit || !formData.title || !formData.issueDescription ||
-        !formData.appointmentDate || !formData.appointmentTime) {
+
+    if (
+      !formData.purposeOfVisit ||
+      !formData.title ||
+      !formData.issueDescription ||
+      !formData.appointmentDate ||
+      !formData.appointmentTime
+    ) {
       alert("Please fill all required fields");
       return;
     }
 
     setLoading(true);
     try {
-      const response = await createAppointment(formData);
+      const response = (await createAppointment(formData)) as AppointmentResponse;
+
+      if (!response?.tokenNumber) {
+        throw new Error("Token number missing in response");
+      }
+
       setTokenNumber(response.tokenNumber);
       setSuccess(true);
-      
+
       setTimeout(() => {
         navigate("/my-appointments");
       }, 3000);
@@ -154,10 +169,14 @@ export default function Appointments() {
 
               {/* Search By Section */}
               <Card className="p-4 bg-muted/50">
-                <Label className="text-sm font-semibold mb-3 block">Search By (Optional)</Label>
+                <Label className="text-sm font-semibold mb-3 block">
+                  Search By (Optional)
+                </Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="appNumber" className="text-sm">Application No.</Label>
+                    <Label htmlFor="appNumber" className="text-sm">
+                      Application No.
+                    </Label>
                     <Input
                       id="appNumber"
                       value={formData.applicationNumber}
@@ -166,7 +185,9 @@ export default function Appointments() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="regNumber" className="text-sm">Registration Number</Label>
+                    <Label htmlFor="regNumber" className="text-sm">
+                      Registration Number
+                    </Label>
                     <Input
                       id="regNumber"
                       value={formData.registrationNumber}
@@ -176,7 +197,9 @@ export default function Appointments() {
                   </div>
                 </div>
                 <div className="mt-4">
-                  <Label htmlFor="refNumber" className="text-sm">Any Reference No. (PRGI)</Label>
+                  <Label htmlFor="refNumber" className="text-sm">
+                    Any Reference No. (PRGI)
+                  </Label>
                   <Input
                     id="refNumber"
                     value={formData.referenceNumber}
@@ -273,7 +296,9 @@ export default function Appointments() {
                   </Label>
                   <div className="space-y-3">
                     <div>
-                      <Label htmlFor="repName" className="text-sm">Name</Label>
+                      <Label htmlFor="repName" className="text-sm">
+                        Name
+                      </Label>
                       <Input
                         id="repName"
                         value={formData.representativeName}
@@ -282,7 +307,9 @@ export default function Appointments() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="repPhone" className="text-sm">Phone</Label>
+                      <Label htmlFor="repPhone" className="text-sm">
+                        Phone
+                      </Label>
                       <Input
                         id="repPhone"
                         value={formData.representativePhone}
@@ -291,7 +318,9 @@ export default function Appointments() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="repEmail" className="text-sm">Email</Label>
+                      <Label htmlFor="repEmail" className="text-sm">
+                        Email
+                      </Label>
                       <Input
                         id="repEmail"
                         type="email"
@@ -308,7 +337,9 @@ export default function Appointments() {
               <div className="flex items-start gap-2 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <AlertCircle className="h-5 w-5 text-blue-500 mt-0.5" />
                 <div className="text-sm">
-                  <p className="font-semibold text-blue-900 dark:text-blue-100">Important</p>
+                  <p className="font-semibold text-blue-900 dark:text-blue-100">
+                    Important
+                  </p>
                   <p className="text-blue-800 dark:text-blue-200">
                     Your appointment will be pending approval. You will receive the meeting details once an admin approves your request.
                   </p>
@@ -325,11 +356,7 @@ export default function Appointments() {
                 >
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1"
-                >
+                <Button type="submit" disabled={loading} className="flex-1">
                   {loading ? "Submitting..." : "Submit Appointment"}
                 </Button>
               </div>

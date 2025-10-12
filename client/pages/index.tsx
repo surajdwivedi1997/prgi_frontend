@@ -38,7 +38,19 @@ const MODULES = [
   { id: "newsprint", name: "Newsprint Declaration Authentication", color: COLORS[5] },
 ];
 
-type SummaryData = Record<string, Record<string, string | number>>;
+type SummaryData = Record<string, Record<string, number>>;
+
+interface ApplicationDetail {
+  applicationNumber?: string;
+  proposedTitles?: string;
+  titleName?: string;
+  currentStatus?: string;
+  applicationStatus?: string;
+  publicationState?: string;
+  publicationDistrict?: string;
+  applicationSubmissionDate?: string;
+  dmSubmitDate?: string;
+}
 
 const renderActiveShape = (props: any) => {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, payload, percent, value } = props;
@@ -107,7 +119,7 @@ export default function Index() {
   const [loading, setLoading] = useState(true);
   
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [detailsData, setDetailsData] = useState<any[]>([]);
+  const [detailsData, setDetailsData] = useState<ApplicationDetail[]>([]);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [selectedSubModule, setSelectedSubModule] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -168,12 +180,12 @@ export default function Index() {
     try {
       if (moduleName === "New Registration") {
         if (subModuleName.includes("New Applications") || subModuleName.includes("Response awaited")) {
-          const data = await apiFetch(
+          const data = await apiFetch<ApplicationDetail[]>(
             `/api/applications/new-registration/new-applications?startDate=${appliedRange.start}&endDate=${appliedRange.end}`
           );
           setDetailsData(Array.isArray(data) ? data : []);
         } else if (subModuleName.includes("Deficient")) {
-          const data = await apiFetch(
+          const data = await apiFetch<ApplicationDetail[]>(
             `/api/applications/new-registration/deficient?startDate=${appliedRange.start}&endDate=${appliedRange.end}`
           );
           setDetailsData(Array.isArray(data) ? data : []);
@@ -217,11 +229,11 @@ export default function Index() {
     URL.revokeObjectURL(url);
   }
 
-  function getModuleCount(moduleName: string) {
+  function getModuleCount(moduleName: string): number {
     if (!summaryData || !summaryData[moduleName]) return 0;
     const moduleData = summaryData[moduleName];
     return Object.values(moduleData).reduce((sum, val) => {
-      const num = typeof val === "string" ? parseInt(val.split("+")[0]) || 0 : Number(val) || 0;
+      const num = Number(val) || 0;
       return sum + num;
     }, 0);
   }
@@ -247,7 +259,7 @@ export default function Index() {
 
   const pieChartData = detailsData.length > 0
     ? Object.entries(
-        detailsData.reduce((acc: any, item: any) => {
+        detailsData.reduce((acc: Record<string, number>, item: ApplicationDetail) => {
           const status = item.currentStatus || item.applicationStatus || "Unknown";
           acc[status] = (acc[status] || 0) + 1;
           return acc;
@@ -417,7 +429,7 @@ export default function Index() {
                           >
                             <span className="text-sm text-muted-foreground mb-1">{status}</span>
                             <span className="text-2xl font-bold" style={{ color: moduleColor }}>
-                              {count}
+                              {count.toLocaleString()}
                             </span>
                           </div>
                         ))}

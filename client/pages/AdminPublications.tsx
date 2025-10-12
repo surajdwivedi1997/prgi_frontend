@@ -24,12 +24,12 @@ interface Publication {
   periodicity: string;
   publicationType: string;
   publisherName: string;
-  publisherEmail: string;
+  publisherEmail?: string; // Made optional
   editorName: string;
-  printerName: string;
+  printerName?: string; // Made optional
   status: string;
   rniNumber: string | null;
-  userEmail: string;
+  userEmail?: string; // Made optional
   createdAt: string;
 }
 
@@ -56,7 +56,8 @@ export default function AdminPublications() {
     try {
       setLoading(true);
       const data = await publicationApi.getAllPublications();
-      setPublications(data);
+      // Type assertion to handle API response
+      setPublications(data as Publication[]);
     } catch (error) {
       console.error("Failed to load publications:", error);
       alert("Failed to load publications");
@@ -77,7 +78,7 @@ export default function AdminPublications() {
         (pub) =>
           pub.titleName.toLowerCase().includes(searchQuery.toLowerCase()) ||
           pub.publisherName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          pub.userEmail.toLowerCase().includes(searchQuery.toLowerCase())
+          (pub.userEmail && pub.userEmail.toLowerCase().includes(searchQuery.toLowerCase()))
       );
     }
 
@@ -97,8 +98,11 @@ export default function AdminPublications() {
 
     try {
       setActionLoading(true);
+
+      const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
       await fetch(
-        `http://localhost:8080/api/publications/${selectedPub.id}/status?status=APPROVED&rniNumber=${rniNumber}`,
+        `${BASE_URL}/api/publications/${selectedPub.id}/status?status=APPROVED&rniNumber=${rniNumber}`,
         {
           method: "PATCH",
           headers: {
@@ -125,8 +129,11 @@ export default function AdminPublications() {
 
     try {
       setActionLoading(true);
+
+      const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
       await fetch(
-        `http://localhost:8080/api/publications/${pub.id}/status?status=REJECTED`,
+        `${BASE_URL}/api/publications/${pub.id}/status?status=REJECTED`,
         {
           method: "PATCH",
           headers: {
@@ -303,7 +310,9 @@ export default function AdminPublications() {
                       <div>
                         <p className="text-sm text-muted-foreground">Publisher</p>
                         <p className="font-medium">{pub.publisherName}</p>
-                        <p className="text-xs text-muted-foreground">{pub.publisherEmail}</p>
+                        {pub.publisherEmail && (
+                          <p className="text-xs text-muted-foreground">{pub.publisherEmail}</p>
+                        )}
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Editor</p>
@@ -311,12 +320,12 @@ export default function AdminPublications() {
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Printer</p>
-                        <p className="font-medium">{pub.printerName}</p>
+                        <p className="font-medium">{pub.printerName || "N/A"}</p>
                       </div>
                     </div>
 
                     <div className="text-sm text-muted-foreground">
-                      Applied by: {pub.userEmail} • {new Date(pub.createdAt).toLocaleString()}
+                      Applied by: {pub.userEmail || "N/A"} • {new Date(pub.createdAt).toLocaleString()}
                     </div>
                   </div>
 

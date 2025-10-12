@@ -48,7 +48,7 @@ export default function AdminCertificateManagement() {
     if (filterStatus === "pending") {
       filtered = filtered.filter(
         (p) =>
-          (p.status === "APPROVED" || p.status === "PENDING") &&
+          (String(p.status) === "APPROVED" || String(p.status) === "PENDING") &&
           !p.certificateNumber
       );
     }
@@ -56,27 +56,29 @@ export default function AdminCertificateManagement() {
     else if (filterStatus === "generated") {
       filtered = filtered.filter(
         (p) =>
-          p.status === "CERTIFICATE_GENERATED" ||
+          String(p.status) === "CERTIFICATE_GENERATED" ||
           !!p.certificateNumber ||
-          p.certificateGenerated
+          !!p.certificateDate // ✅ certificateDate instead of old certificateGenerated
       );
     }
     // 🔹 All = everything that is approved or generated
     else if (filterStatus === "all") {
       filtered = publications.filter(
         (p) =>
-          ["APPROVED", "CERTIFICATE_GENERATED", "PENDING"].includes(p.status) ||
-          !!p.certificateNumber
+          ["APPROVED", "CERTIFICATE_GENERATED", "PENDING"].includes(String(p.status)) ||
+          !!p.certificateNumber ||
+          !!p.certificateDate
       );
     }
 
     // 🔹 Search filter
     if (searchTerm) {
+      const search = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (p) =>
-          p.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          p.publisherName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          p.certificateNumber?.toLowerCase().includes(searchTerm.toLowerCase())
+          p.title.toLowerCase().includes(search) ||
+          p.publisherName.toLowerCase().includes(search) ||
+          p.certificateNumber?.toLowerCase().includes(search)
       );
     }
 
@@ -116,7 +118,15 @@ export default function AdminCertificateManagement() {
         return;
       }
 
-      const blob = await certificateService.downloadCertificate(publication.certificateNumber);
+      const blob = await certificateService.downloadCertificate(
+        publication.certificateNumber
+      );
+
+      if (!blob || blob.size === 0) {
+        alert("No certificate file available to download.");
+        return;
+      }
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -152,7 +162,9 @@ export default function AdminCertificateManagement() {
             <div className="flex items-center gap-3 mb-4">
               <FileCheck className="h-8 w-8 text-cyan-600" />
               <div>
-                <h1 className="text-3xl font-bold">PRGI Certificate Management</h1>
+                <h1 className="text-3xl font-bold">
+                  PRGI Certificate Management
+                </h1>
                 <p className="text-muted-foreground">
                   Generate, preview and download publication certificates
                 </p>
@@ -184,7 +196,9 @@ export default function AdminCertificateManagement() {
             {filteredPublications.length === 0 && (
               <Card className="p-12 text-center">
                 <FileCheck className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-lg text-muted-foreground">No publications found</p>
+                <p className="text-lg text-muted-foreground">
+                  No publications found
+                </p>
                 <p className="text-sm text-muted-foreground">
                   {searchTerm
                     ? "Try adjusting your search criteria"

@@ -119,9 +119,10 @@ export default function AdminGrievances() {
 
   async function viewGrievanceDetails(grievanceNumber: string) {
     try {
-      const data = await apiFetch(`/api/grievances/${grievanceNumber}`);
-      setSelectedGrievance(data.grievance);
-      setComments(data.comments || []);
+      const data = await apiFetch(`/api/grievances/${grievanceNumber}`) as any;
+      // Fix: Properly type cast the response
+      setSelectedGrievance(data?.grievance || null);
+      setComments(Array.isArray(data?.comments) ? data.comments : []);
       setDetailOpen(true);
     } catch (err) {
       console.error("Failed to load grievance details:", err);
@@ -547,5 +548,5 @@ export default function AdminGrievances() {
         </DialogContent>
       </Dialog>
     </div>
-  );
+  )
 }
