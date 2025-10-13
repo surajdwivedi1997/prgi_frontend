@@ -1,19 +1,12 @@
 import { useState, useEffect } from "react";
 import { publicationApi } from "../lib/publicationApi";
+import { apiFetch } from "@/lib/api";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import Header from "../components/layout/Header";
-import {
-  Loader2,
-  FileText,
-  CheckCircle,
-  XCircle,
-  Eye,
-  Search,
-  Filter,
-} from "lucide-react";
+import { Loader2, FileText, CheckCircle, XCircle, Search } from "lucide-react";
 
 interface Publication {
   id: number;
@@ -24,12 +17,12 @@ interface Publication {
   periodicity: string;
   publicationType: string;
   publisherName: string;
-  publisherEmail?: string; // Made optional
+  publisherEmail?: string;
   editorName: string;
-  printerName?: string; // Made optional
+  printerName?: string;
   status: string;
   rniNumber: string | null;
-  userEmail?: string; // Made optional
+  userEmail?: string;
   createdAt: string;
 }
 
@@ -52,11 +45,11 @@ export default function AdminPublications() {
     filterPublications();
   }, [publications, statusFilter, searchQuery]);
 
+  // ✅ Fetch publications
   const loadPublications = async () => {
     try {
       setLoading(true);
       const data = await publicationApi.getAllPublications();
-      // Type assertion to handle API response
       setPublications(data as Publication[]);
     } catch (error) {
       console.error("Failed to load publications:", error);
@@ -74,18 +67,20 @@ export default function AdminPublications() {
     }
 
     if (searchQuery) {
+      const q = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (pub) =>
-          pub.titleName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          pub.publisherName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (pub.userEmail && pub.userEmail.toLowerCase().includes(searchQuery.toLowerCase()))
+          pub.titleName.toLowerCase().includes(q) ||
+          pub.publisherName.toLowerCase().includes(q) ||
+          (pub.userEmail && pub.userEmail.toLowerCase().includes(q))
       );
     }
 
     setFilteredPublications(filtered);
   };
 
-  const handleApprove = async (pub: Publication) => {
+  // ✅ Approve flow — now uses apiFetch, no BASE_URL or fetch()
+  const handleApprove = (pub: Publication) => {
     setSelectedPub(pub);
     setShowModal(true);
   };
@@ -98,53 +93,42 @@ export default function AdminPublications() {
 
     try {
       setActionLoading(true);
-
-      const BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-      await fetch(
-        `${BASE_URL}/api/publications/${selectedPub.id}/status?status=APPROVED&rniNumber=${rniNumber}`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
-          },
-        }
+      await apiFetch(
+        `publications/${selectedPub.id}/status?status=APPROVED&rniNumber=${encodeURIComponent(
+          rniNumber
+        )}`,
+        { method: "PATCH" }
       );
+
       alert("Publication approved successfully!");
       setShowModal(false);
       setRniNumber("");
       setSelectedPub(null);
-      loadPublications();
+      await loadPublications();
     } catch (error) {
-      console.error("Failed to approve:", error);
+      console.error("Failed to approve publication:", error);
       alert("Failed to approve publication");
     } finally {
       setActionLoading(false);
     }
   };
 
+  // ✅ Reject flow — uses apiFetch instead of manual fetch()
   const handleReject = async (pub: Publication) => {
     const reason = prompt("Enter rejection reason:");
     if (!reason) return;
 
     try {
       setActionLoading(true);
-
-      const BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-      await fetch(
-        `${BASE_URL}/api/publications/${pub.id}/status?status=REJECTED`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
-          },
-        }
+      await apiFetch(
+        `publications/${pub.id}/status?status=REJECTED&reason=${encodeURIComponent(reason)}`,
+        { method: "PATCH" }
       );
-      alert("Publication rejected");
-      loadPublications();
+
+      alert("Publication rejected successfully!");
+      await loadPublications();
     } catch (error) {
-      console.error("Failed to reject:", error);
+      console.error("Failed to reject publication:", error);
       alert("Failed to reject publication");
     } finally {
       setActionLoading(false);
@@ -325,7 +309,8 @@ export default function AdminPublications() {
                     </div>
 
                     <div className="text-sm text-muted-foreground">
-                      Applied by: {pub.userEmail || "N/A"} • {new Date(pub.createdAt).toLocaleString()}
+                      Applied by: {pub.userEmail || "N/A"} •{" "}
+                      {new Date(pub.createdAt).toLocaleString()}
                     </div>
                   </div>
 
@@ -333,10 +318,9 @@ export default function AdminPublications() {
                     <div className="flex gap-2">
                       <Button
                         size="sm"
-                        variant="default"
                         onClick={() => handleApprove(pub)}
                         disabled={actionLoading}
-                        className="bg-green-600 hover:bg-green-700"
+                        className="bg-green-600 hover:bg-green-700 text-white"
                       >
                         <CheckCircle className="h-4 w-4 mr-1" />
                         Approve
@@ -396,7 +380,7 @@ export default function AdminPublications() {
                 <Button
                   onClick={confirmApprove}
                   disabled={actionLoading || !rniNumber.trim()}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-green-600 hover:bg-green-700 text-white"
                 >
                   {actionLoading ? (
                     <>

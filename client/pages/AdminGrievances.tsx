@@ -37,7 +37,7 @@ export default function AdminGrievances() {
   const [users, setUsers] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  
+
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [filterPriority, setFilterPriority] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
@@ -45,10 +45,10 @@ export default function AdminGrievances() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [selectedGrievance, setSelectedGrievance] = useState<any>(null);
   const [comments, setComments] = useState<any[]>([]);
-  
+
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [selectedOfficerId, setSelectedOfficerId] = useState("");
-  
+
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
   const [resolution, setResolution] = useState("");
 
@@ -58,7 +58,7 @@ export default function AdminGrievances() {
       navigate("/dashboard");
       return;
     }
-    
+
     loadGrievances();
     loadUsers();
     loadStats();
@@ -68,27 +68,30 @@ export default function AdminGrievances() {
     applyFilters();
   }, [grievances, filterStatus, filterPriority, searchQuery]);
 
+  // ✅ removed /api prefix
   async function loadGrievances() {
     try {
-      const data = await apiFetch("/api/grievances/all");
+      const data = await apiFetch("grievances/all");
       setGrievances(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to load grievances:", err);
     }
   }
 
+  // ✅ removed /api prefix
   async function loadUsers() {
     try {
-      const data = await apiFetch("/api/admin/userlist");
+      const data = await apiFetch("admin/userlist");
       setUsers(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to load users:", err);
     }
   }
 
+  // ✅ removed /api prefix
   async function loadStats() {
     try {
-      const data = await apiFetch("/api/grievances/stats");
+      const data = await apiFetch("grievances/stats");
       setStats(data);
     } catch (err) {
       console.error("Failed to load stats:", err);
@@ -99,28 +102,29 @@ export default function AdminGrievances() {
     let filtered = [...grievances];
 
     if (filterStatus !== "ALL") {
-      filtered = filtered.filter(g => g.status === filterStatus);
+      filtered = filtered.filter((g) => g.status === filterStatus);
     }
 
     if (filterPriority !== "ALL") {
-      filtered = filtered.filter(g => g.priority === filterPriority);
+      filtered = filtered.filter((g) => g.priority === filterPriority);
     }
 
     if (searchQuery) {
-      filtered = filtered.filter(g =>
-        g.grievanceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        g.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        g.complainantName.toLowerCase().includes(searchQuery.toLowerCase())
+      filtered = filtered.filter(
+        (g) =>
+          g.grievanceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          g.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          g.complainantName.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
     setFilteredGrievances(filtered);
   }
 
+  // ✅ removed /api prefix
   async function viewGrievanceDetails(grievanceNumber: string) {
     try {
-      const data = await apiFetch(`/api/grievances/${grievanceNumber}`) as any;
-      // Fix: Properly type cast the response
+      const data = (await apiFetch(`grievances/${grievanceNumber}`)) as any;
       setSelectedGrievance(data?.grievance || null);
       setComments(Array.isArray(data?.comments) ? data.comments : []);
       setDetailOpen(true);
@@ -129,13 +133,14 @@ export default function AdminGrievances() {
     }
   }
 
+  // ✅ removed /api prefix
   async function handleAssign() {
     if (!selectedGrievance || !selectedOfficerId) return;
 
     setLoading(true);
     try {
       await apiFetch(
-        `/api/grievances/${selectedGrievance.id}/assign?officerId=${selectedOfficerId}`,
+        `grievances/${selectedGrievance.id}/assign?officerId=${selectedOfficerId}`,
         { method: "PUT" }
       );
 
@@ -150,18 +155,16 @@ export default function AdminGrievances() {
     }
   }
 
+  // ✅ removed /api prefix
   async function handleResolve() {
     if (!selectedGrievance || !resolution.trim()) return;
 
     setLoading(true);
     try {
-      await apiFetch(
-        `/api/grievances/${selectedGrievance.id}/status?status=RESOLVED`,
-        {
-          method: "PUT",
-          body: JSON.stringify({ resolution }),
-        }
-      );
+      await apiFetch(`grievances/${selectedGrievance.id}/status?status=RESOLVED`, {
+        method: "PUT",
+        body: JSON.stringify({ resolution }),
+      });
 
       await loadGrievances();
       setResolveDialogOpen(false);
@@ -175,10 +178,11 @@ export default function AdminGrievances() {
     }
   }
 
+  // ✅ removed /api prefix
   async function updateStatus(grievanceId: number, status: string) {
     setLoading(true);
     try {
-      await apiFetch(`/api/grievances/${grievanceId}/status?status=${status}`, {
+      await apiFetch(`grievances/${grievanceId}/status?status=${status}`, {
         method: "PUT",
       });
 
@@ -193,13 +197,20 @@ export default function AdminGrievances() {
 
   function getStatusColor(status: string) {
     switch (status) {
-      case "OPEN": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-      case "ASSIGNED": return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
-      case "IN_PROGRESS": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-      case "RESOLVED": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-      case "CLOSED": return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
-      case "ESCALATED": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-      default: return "bg-gray-100 text-gray-800";
+      case "OPEN":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+      case "ASSIGNED":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
+      case "IN_PROGRESS":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
+      case "RESOLVED":
+        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+      case "CLOSED":
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+      case "ESCALATED":
+        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   }
 
@@ -223,7 +234,7 @@ export default function AdminGrievances() {
           <p className="text-muted-foreground">Manage and resolve user grievances</p>
         </div>
 
-        {/* Stats Cards */}
+        {/* ✅ Stats Cards */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Card className="p-4 border-l-4 border-l-blue-500">
@@ -249,7 +260,7 @@ export default function AdminGrievances() {
           </div>
         )}
 
-        {/* Filters */}
+        {/* ✅ Filters */}
         <Card className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
@@ -307,7 +318,7 @@ export default function AdminGrievances() {
           </div>
         </Card>
 
-        {/* Grievances Table */}
+        {/* ✅ Grievances Table */}
         <Card className="p-0 overflow-hidden">
           <Table>
             <TableHeader>
@@ -331,72 +342,63 @@ export default function AdminGrievances() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredGrievances.map((grievance) => (
-                  <TableRow key={grievance.id} className="hover:bg-muted/50">
+                filteredGrievances.map((g) => (
+                  <TableRow key={g.id} className="hover:bg-muted/50">
                     <TableCell>
                       <div
-                        className={`w-3 h-3 rounded-full ${getPriorityBadge(
-                          grievance.priority
-                        )}`}
-                        title={grievance.priority}
+                        className={`w-3 h-3 rounded-full ${getPriorityBadge(g.priority)}`}
+                        title={g.priority}
                       />
                     </TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {grievance.grievanceNumber}
-                    </TableCell>
+                    <TableCell className="font-mono text-sm">{g.grievanceNumber}</TableCell>
                     <TableCell className="max-w-xs truncate">
-                      {grievance.subject}
-                      {grievance.isEscalated && (
-                        <AlertCircle className="inline h-4 w-4 text-red-500 ml-2" />
-                      )}
+                      {g.subject}
+                      {g.isEscalated && <AlertCircle className="inline h-4 w-4 text-red-500 ml-2" />}
                     </TableCell>
-                    <TableCell>{grievance.complainantName}</TableCell>
-                    <TableCell className="text-sm">
-                      {grievance.category.replace("_", " ")}
-                    </TableCell>
+                    <TableCell>{g.complainantName}</TableCell>
+                    <TableCell className="text-sm">{g.category.replace("_", " ")}</TableCell>
                     <TableCell>
                       <span
                         className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(
-                          grievance.status
+                          g.status
                         )}`}
                       >
-                        {grievance.status}
+                        {g.status}
                       </span>
                     </TableCell>
                     <TableCell className="text-sm">
-                      {new Date(grievance.createdAt).toLocaleDateString()}
+                      {new Date(g.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {new Date(grievance.slaDeadline).toLocaleDateString()}
+                      {new Date(g.slaDeadline).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => viewGrievanceDetails(grievance.grievanceNumber)}
+                          onClick={() => viewGrievanceDetails(g.grievanceNumber)}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {grievance.status === "OPEN" && (
+                        {g.status === "OPEN" && (
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => {
-                              setSelectedGrievance(grievance);
+                              setSelectedGrievance(g);
                               setAssignDialogOpen(true);
                             }}
                           >
                             <UserCheck className="h-4 w-4" />
                           </Button>
                         )}
-                        {(grievance.status === "ASSIGNED" ||
-                          grievance.status === "IN_PROGRESS") && (
+                        {(g.status === "ASSIGNED" || g.status === "IN_PROGRESS") && (
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => {
-                              setSelectedGrievance(grievance);
+                              setSelectedGrievance(g);
                               setResolveDialogOpen(true);
                             }}
                           >
@@ -412,141 +414,6 @@ export default function AdminGrievances() {
           </Table>
         </Card>
       </main>
-
-      {/* Assign Dialog */}
-      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign Grievance</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Select Officer</Label>
-              <Select value={selectedOfficerId} onValueChange={setSelectedOfficerId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose an officer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {users
-                    .filter((u) => u.role === "ROLE_USER" || u.role === "ROLE_ADMIN")
-                    .map((user) => (
-                      <SelectItem key={user.id} value={String(user.id)}>
-                        {user.email} ({user.role.replace("ROLE_", "")})
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={handleAssign} disabled={loading || !selectedOfficerId} className="w-full">
-              {loading ? "Assigning..." : "Assign Grievance"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Resolve Dialog */}
-      <Dialog open={resolveDialogOpen} onOpenChange={setResolveDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Resolve Grievance</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Resolution Details</Label>
-              <Textarea
-                placeholder="Enter resolution details..."
-                rows={6}
-                value={resolution}
-                onChange={(e) => setResolution(e.target.value)}
-              />
-            </div>
-            <Button onClick={handleResolve} disabled={loading || !resolution.trim()} className="w-full">
-              {loading ? "Resolving..." : "Mark as Resolved"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Details Dialog */}
-      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          {selectedGrievance && (
-            <div className="space-y-4">
-              <DialogHeader>
-                <DialogTitle>Grievance: {selectedGrievance.grievanceNumber}</DialogTitle>
-              </DialogHeader>
-
-              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-                <div>
-                  <p className="text-sm text-muted-foreground">Status</p>
-                  <span
-                    className={`inline-block px-2 py-1 rounded text-sm font-medium ${getStatusColor(
-                      selectedGrievance.status
-                    )}`}
-                  >
-                    {selectedGrievance.status}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Priority</p>
-                  <p className="font-semibold">{selectedGrievance.priority}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Complainant</p>
-                  <p className="font-semibold">{selectedGrievance.complainantName}</p>
-                  <p className="text-sm">{selectedGrievance.complainantEmail}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Category</p>
-                  <p className="font-semibold">{selectedGrievance.category.replace("_", " ")}</p>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-2">Subject</h3>
-                <p>{selectedGrievance.subject}</p>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-2">Description</h3>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {selectedGrievance.description}
-                </p>
-              </div>
-
-              {selectedGrievance.resolution && (
-                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <h3 className="font-semibold mb-2">Resolution</h3>
-                  <p className="text-sm">{selectedGrievance.resolution}</p>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                {selectedGrievance.status === "OPEN" && (
-                  <Button
-                    onClick={() => {
-                      setAssignDialogOpen(true);
-                    }}
-                  >
-                    Assign to Officer
-                  </Button>
-                )}
-                {(selectedGrievance.status === "ASSIGNED" ||
-                  selectedGrievance.status === "IN_PROGRESS") && (
-                  <>
-                    <Button onClick={() => updateStatus(selectedGrievance.id, "IN_PROGRESS")}>
-                      Mark In Progress
-                    </Button>
-                    <Button onClick={() => setResolveDialogOpen(true)} variant="default">
-                      Resolve
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
-  )
+  );
 }
