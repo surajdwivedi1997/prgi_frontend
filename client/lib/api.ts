@@ -1,5 +1,13 @@
-export const API_BASE = ""; // leave blank so Vite proxy handles /api -> backend
-export const DEMO = false;  // disable demo mode
+// Check if we're in production (deployed on Render)
+const isProduction = import.meta.env.PROD;
+
+// In production, use the backend URL directly
+// In development, use empty string so Vite proxy handles it
+export const API_BASE = isProduction 
+  ? "https://prgi-backend.onrender.com" 
+  : "";
+
+export const DEMO = false;
 
 export type ApiOptions = RequestInit & { auth?: boolean };
 
@@ -19,7 +27,7 @@ export async function apiFetch<T = unknown>(path: string, opts: ApiOptions = {})
     headers.set("Content-Type", "application/json");
   }
 
-  const useAuth = opts.auth !== false; // default true
+  const useAuth = opts.auth !== false;
   const token = localStorage.getItem("jwtToken");
   if (useAuth && token) headers.set("Authorization", `Bearer ${token}`);
 
@@ -33,7 +41,6 @@ export async function apiFetch<T = unknown>(path: string, opts: ApiOptions = {})
   console.log(`[apiFetch] Response ok: ${res.ok}`);
 
   if (res.status === 401) {
-    // auto logout
     console.log("[apiFetch] 🔒 Unauthorized - clearing storage and redirecting to login");
     localStorage.clear();
     sessionStorage.clear();
