@@ -35,6 +35,103 @@ const getDistrictFile = (stateName: string) => {
   return fileMap[stateName] || INDIA_DISTRICTS;
 };
 
+// 🔥 NEW: Helper function to normalize district names for database lookup
+const normalizeDistrictName = (districtName: string, stateName: string): string => {
+  // State-specific district mappings (GeoJSON name → Database name)
+  const districtMappings: Record<string, Record<string, string>> = {
+  'Uttarakhand': {
+  'Haridwar': 'Hardwar',
+  'Dehra Dun': 'Dehradun',        // GeoJSON has space
+  'Dehradun': 'Dehradun',         // Some maps might not have space
+  'Udham Singh Nagar': 'Udham Singh nagar',
+  'Tehri Garhwal': 'Tehri garhwal',
+  'Pauri Garhwal': 'Pauri garhwal',
+  'Chamoli': 'Chamoli',
+  'Rudraprayag': 'Rudraprayag',
+  'Bageshwar': 'Bageshwar',
+  'Pithoragarh': 'Pithoragarh',
+  'Champawat': 'Champawat',
+  'Almora': 'Almora',
+  'Nainital': 'Nainital',
+  'Uttarkashi': 'Uttarkashi',
+},
+    'Karnataka': {
+      'Bangalore': 'Bangalore',
+      'Bengaluru': 'Bangalore',
+      'Bangalore Urban': 'Bangalore',
+      'Mysore': 'Mysore',
+      'Mysuru': 'Mysore',
+      'Tumkur': 'Tumkur',
+      'Belgaum': 'Belgaum',
+      'Belagavi': 'Belgaum',
+    },
+    'Delhi': {
+      'North Delhi': 'North delhi',
+      'South Delhi': 'South delhi',
+      'East Delhi': 'East delhi',
+      'West Delhi': 'West delhi',
+      'Central Delhi': 'Central delhi',
+      'New Delhi': 'New delhi',
+      'North East Delhi': 'North East delhi',
+      'North West Delhi': 'North West delhi',
+      'South East Delhi': 'South East delhi',
+      'South West Delhi': 'South West delhi',
+      'Shahdara': 'Shahdara',
+    },
+    'Maharashtra': {
+      'Mumbai': 'Mumbai',
+      'Mumbai Suburban': 'Mumbai',
+      'Thane': 'Thane',
+      'Pune': 'Pune',
+      'Nagpur': 'Nagpur',
+    },
+    'Tamil Nadu': {
+      'Chennai': 'Chennai',
+      'Coimbatore': 'Coimbatore',
+      'Madurai': 'Madurai',
+      'Tiruchirappalli': 'Tiruchirappalli',
+      'Trichy': 'Tiruchirappalli',
+      'Tuticorin' : 'Thoothukudi',
+      'Thoothukudi': 'Thoothukudi',
+    },
+    'West Bengal': {
+      'Kolkata': 'Kolkata',
+      'North 24 Parganas': 'North 24 parganas',
+      'South 24 Parganas': 'South 24 parganas',
+      'Howrah': 'Howrah',
+    },
+    'Rajasthan': {
+      'Jaipur': 'Jaipur',
+      'Jodhpur': 'Jodhpur',
+      'Udaipur': 'Udaipur',
+    },
+    'Madhya Pradesh': {
+      'Bhopal': 'Bhopal',
+      'Indore': 'Indore',
+      'Gwalior': 'Gwalior',
+    },
+    'Gujarat': {
+      'Ahmedabad': 'Ahmedabad',
+      'Surat': 'Surat',
+      'Vadodara': 'Vadodara',
+    },
+    'Andhra Pradesh': {
+      'Visakhapatnam': 'Visakhapatnam',
+      'Vijayawada': 'Vijayawada',
+      'Guntur': 'Guntur',
+    },
+    // Add more states as you discover mismatches
+  };
+  
+  // Check for exact mapping first
+  if (districtMappings[stateName]?.[districtName]) {
+    return districtMappings[stateName][districtName];
+  }
+  
+  // If no mapping found, return as-is (database should handle it)
+  return districtName.trim();
+};
+
 export default function IndiaMap() {
   const [hovered, setHovered] = useState<string | null>(null);
   const [selectedState, setSelectedState] = useState<string | null>(
@@ -52,6 +149,14 @@ export default function IndiaMap() {
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
   const [districtData, setDistrictData] = useState<any[]>([]);
   const [showDataPanel, setShowDataPanel] = useState(false);
+  
+  // 🆕 NEW: For hover registration counts
+  const [hoveredCount, setHoveredCount] = useState<number | null>(null);
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  // ⚙️ Cache and debounce setup
+const cache = useRef<Record<string, number>>({});
+const hoverTimeout = useRef<NodeJS.Timeout | null>(null);
+
 
   // 🧭 Restore last viewed state (if exists)
   useEffect(() => {
@@ -68,6 +173,7 @@ export default function IndiaMap() {
     setFilteredDistricts([]);
     setDistrictData([]);
     setShowDataPanel(false);
+    setHoveredCount(null);
     setMapCenter([80, 22]);
     setMapScale(1000);
     setZoom(1);
@@ -146,7 +252,7 @@ export default function IndiaMap() {
     }
   };
 
-  // 🆕 NEW: Fetch district data from backend when clicked
+  // 🆕 IMPROVED: Fetch district data from backend when clicked
   const handleDistrictClick = async (geo: any) => {
     const districtName =
       geo?.properties?.D_N ||
@@ -164,32 +270,260 @@ export default function IndiaMap() {
     const formattedDistrict = String(districtName).trim();
     const stateName = selectedState || geo?.properties?.NAME_1 || "Unknown";
 
-    console.log(`📡 Fetching data for ${formattedDistrict}, ${stateName}`);
+    // 🔥 Map display names to exact database state names
+    const stateNameMapping: Record<string, string> = {
+      'Andhra Pradesh': 'Andhra pradesh',
+      'Arunachal Pradesh': 'Arunachal pradesh',
+      'Chhattisgarh': 'Chhattisgarh',
+      'Gujarat': 'Gujarat',
+      'Himachal Pradesh': 'Himachal pradesh',
+      'Jammu And Kashmir': 'Jammu and kashmir',
+      'Jammu and Kashmir': 'Jammu and kashmir',
+      'Karnataka': 'Karnataka',
+      'Kerala': 'Kerala',
+      'Madhya Pradesh': 'Madhya pradesh',
+      'Maharashtra': 'Maharashtra',
+      'Punjab': 'Punjab',
+      'Rajasthan': 'Rajasthan',
+      'Tamil Nadu': 'Tamil nadu',
+      'Telangana': 'Telangana',
+      'Uttar Pradesh': 'Uttar pradesh',
+      'Uttarakhand': 'Uttarakhand',
+      'Uttaranchal': 'Uttarakhand',
+      'West Bengal': 'West bengal',
+      'Bihar': 'Bihar',
+      'Delhi': 'Delhi',
+      'Goa': 'Goa',
+      'Haryana': 'Haryana',
+      'Jharkhand': 'Jharkhand',
+      'Manipur': 'Manipur',
+      'Meghalaya': 'Meghalaya',
+      'Mizoram': 'Mizoram',
+      'Nagaland': 'Nagaland',
+      'Odisha': 'Odisha',
+      'Orissa': 'Odisha',
+      'Puducherry': 'Puducherry',
+      'Pondicherry': 'Puducherry',
+      'Sikkim': 'Sikkim',
+      'Tripura': 'Tripura',
+      'Assam': 'Assam',
+    };
+    
+    const normalizedState = stateNameMapping[stateName] || stateName;
+    const normalizedDistrict = normalizeDistrictName(formattedDistrict, normalizedState);
+
+    console.log(`\n📍 ==================== DISTRICT CLICK ====================`);
+    console.log(`   State (from map):       "${stateName}"`);
+    console.log(`   State (normalized):     "${normalizedState}"`);
+    console.log(`   District (from map):    "${formattedDistrict}"`);
+    console.log(`   District (normalized):  "${normalizedDistrict}"`);
+    console.log(`   API URL: ${import.meta.env.VITE_API_BASE_URL}/api/registrations/by-location?state=${encodeURIComponent(normalizedState)}&district=${encodeURIComponent(normalizedDistrict)}`);
+    console.log(`========================================================\n`);
+    
     setSelectedDistrict(formattedDistrict);
     setShowDataPanel(true);
     setDistrictData([]);
 
     try {
-  const BASE_URL = import.meta.env.VITE_API_BASE_URL;
-  const response = await fetch(
-    `${BASE_URL}/api/registrations/by-location?state=${encodeURIComponent(
-      stateName
-    )}&district=${encodeURIComponent(formattedDistrict)}`
-  );
+      const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+      const response = await fetch(
+        `${BASE_URL}/api/registrations/by-location?state=${encodeURIComponent(
+          normalizedState
+        )}&district=${encodeURIComponent(normalizedDistrict)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
+          },
+        }
+      );
 
-      if (!response.ok) throw new Error("Failed to fetch");
+      console.log(`📊 Response Status: ${response.status} ${response.statusText}`);
+
+      if (!response.ok) {
+        console.error(`❌ API returned error status: ${response.status}`);
+        console.error(`   This usually means:`);
+        console.error(`   - The endpoint doesn't exist (404)`);
+        console.error(`   - Authentication failed (401)`);
+        console.error(`   - Server error (500)`);
+        throw new Error(`Failed to fetch: ${response.status}`);
+      }
 
       const data = await response.json();
+      console.log(`✅ API Response:`, data);
+      console.log(`✅ Records found: ${data.length}`);
+      
       setDistrictData(data);
-      console.log(`✅ Found ${data.length} registrations`);
+      
+      if (data.length === 0) {
+        console.warn(`\n⚠️  ==================== NO RECORDS FOUND ====================`);
+        console.warn(`   The API returned successfully but found 0 records.`);
+        console.warn(`   This likely means the district name doesn't match your database.`);
+        console.warn(`   \n   🔍 DEBUGGING STEPS:`);
+        console.warn(`   1. Check your database with this query:`);
+        console.warn(`      SELECT DISTINCT district_name FROM registrations WHERE state_name = '${normalizedState}';`);
+        console.warn(`   2. Compare the output with: "${normalizedDistrict}"`);
+        console.warn(`   3. If they don't match, add a mapping in normalizeDistrictName()`);
+        console.warn(`   \n   Example:`);
+        console.warn(`   '${normalizedState}': {`);
+        console.warn(`     '${formattedDistrict}': 'CORRECT_DB_NAME_HERE',`);
+        console.warn(`   }`);
+        console.warn(`=========================================================\n`);
+      } else {
+        console.log(`\n✨ SUCCESS! Showing ${data.length} records for ${formattedDistrict}\n`);
+      }
     } catch (err) {
-      console.error("❌ Error fetching data:", err);
+      console.error("\n❌ ==================== ERROR ====================");
+      console.error("Error fetching district data:", err);
+      console.error("Check:");
+      console.error("1. Is your backend running?");
+      console.error("2. Is VITE_API_BASE_URL set correctly?");
+      console.error("3. Is the JWT token valid?");
+      console.error("================================================\n");
     }
   };
 
   const handleRecenter = () => {
     if (selectedState) handleStateClick(selectedState);
     else handleReset();
+  };
+  
+  // 🆕 IMPROVED: Fetch registration count on hover with normalization
+  const fetchRegistrationCount = async (stateName: string, districtName?: string) => {
+    try {
+      const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+      
+      // State name mapping
+      const stateNameMapping: Record<string, string> = {
+        'Andhra Pradesh': 'Andhra pradesh',
+        'Arunachal Pradesh': 'Arunachal pradesh',
+        'Chhattisgarh': 'Chhattisgarh',
+        'Gujarat': 'Gujarat',
+        'Himachal Pradesh': 'Himachal pradesh',
+        'Jammu And Kashmir': 'Jammu and kashmir',
+        'Jammu and Kashmir': 'Jammu and kashmir',
+        'Karnataka': 'Karnataka',
+        'Kerala': 'Kerala',
+        'Madhya Pradesh': 'Madhya pradesh',
+        'Maharashtra': 'Maharashtra',
+        'Punjab': 'Punjab',
+        'Rajasthan': 'Rajasthan',
+        'Tamil Nadu': 'Tamil nadu',
+        'Telangana': 'Telangana',
+        'Uttar Pradesh': 'Uttar pradesh',
+        'Uttarakhand': 'Uttarakhand',
+        'Uttaranchal': 'Uttarakhand',
+        'West Bengal': 'West bengal',
+        'Bihar': 'Bihar',
+        'Delhi': 'Delhi',
+        'Goa': 'Goa',
+        'Haryana': 'Haryana',
+        'Jharkhand': 'Jharkhand',
+        'Manipur': 'Manipur',
+        'Meghalaya': 'Meghalaya',
+        'Mizoram': 'Mizoram',
+        'Nagaland': 'Nagaland',
+        'Odisha': 'Odisha',
+        'Orissa': 'Odisha',
+        'Puducherry': 'Puducherry',
+        'Pondicherry': 'Puducherry',
+        'Sikkim': 'Sikkim',
+        'Tripura': 'Tripura',
+        'Assam': 'Assam',
+      };
+      
+      const normalizedState = stateNameMapping[stateName] || stateName;
+      // 🔥 CRITICAL FIX: Apply normalization to districts too
+      const normalizedDistrict = districtName 
+        ? normalizeDistrictName(districtName, normalizedState)
+        : undefined;
+      
+      console.log('🔍 HOVER:', stateName, districtName ? `→ ${districtName}` : '(state level)');
+      console.log('   Normalized:', normalizedState, normalizedDistrict ? `→ ${normalizedDistrict}` : '');
+      
+      let url = normalizedDistrict 
+        ? `${BASE_URL}/api/registrations/by-location?state=${encodeURIComponent(normalizedState)}&district=${encodeURIComponent(normalizedDistrict)}`
+        : `${BASE_URL}/api/registrations/by-location?state=${encodeURIComponent(normalizedState)}`;
+      
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
+        },
+      });
+      
+      if (!response.ok) {
+        console.warn(`❌ Hover API error: ${response.status}`);
+        setHoveredCount(0);
+        return;
+      }
+      
+      const data = await response.json();
+      let records = Array.isArray(data) ? data : (data.data || data.registrations || data.results || []);
+      
+      if (records.length > 0) {
+        // Count unique registration numbers
+        const uniqueRegistrations = new Set();
+        
+        records.forEach((record: any) => {
+          const newRegNumber = record.New_registration_no || 
+                              record.new_registration_no || 
+                              record.NewRegistration_registration_no ||
+                              record.newRegistration_registration_no;
+          const oldRegNumber = record.old_registration_no || 
+                              record.Old_registration_no ||
+                              record.old_registration_No;
+          
+          if (newRegNumber && String(newRegNumber).trim() !== '') {
+            uniqueRegistrations.add(String(newRegNumber).trim());
+          } else if (oldRegNumber && String(oldRegNumber).trim() !== '') {
+            uniqueRegistrations.add(String(oldRegNumber).trim());
+          } else {
+            // Fallback to other identifiers
+            const fallback = record.registrationNumber || 
+                           record.registration_number || 
+                           record.id;
+            if (fallback && String(fallback).trim() !== '') {
+              uniqueRegistrations.add(String(fallback).trim());
+            }
+          }
+        });
+        
+        const uniqueCount = uniqueRegistrations.size;
+        console.log(`   → ${uniqueCount} unique (${records.length} total)`);
+        setHoveredCount(uniqueCount);
+      } else {
+        console.warn('   → 0 records');
+        setHoveredCount(0);
+      }
+    } catch (err) {
+      console.error("❌ Error in hover:", err);
+      setHoveredCount(0);
+    }
+  };
+  
+  // 🆕 NEW: Handle state hover
+  const handleStateHover = (stateName: string | null, event?: any) => {
+    setHovered(stateName);
+    if (event) {
+      setMousePosition({ x: event.clientX, y: event.clientY });
+    }
+    if (stateName) {
+      fetchRegistrationCount(stateName);
+    } else {
+      setHoveredCount(null);
+    }
+  };
+  
+  // 🆕 NEW: Handle district hover
+  const handleDistrictHover = (districtName: string | null, event?: any) => {
+    setHovered(districtName);
+    if (event) {
+      setMousePosition({ x: event.clientX, y: event.clientY });
+    }
+    if (districtName && selectedState) {
+      fetchRegistrationCount(selectedState, districtName);
+    } else {
+      setHoveredCount(null);
+    }
   };
 
   const renameDisplayMap: Record<string, string> = {
@@ -226,7 +560,7 @@ export default function IndiaMap() {
         <button onClick={handleRecenter} className="px-3 py-2 text-sm font-semibold hover:bg-cyan-50 dark:hover:bg-gray-700 text-cyan-700 dark:text-cyan-400">⟳</button>
       </div>
 
-      {/* 🗺️ Map Container with Colored Border - MAIN CHANGE HERE */}
+      {/* 🗺️ Map Container with Colored Border */}
       <div className="w-full flex justify-center items-center relative">
         {loadingStates && (
           <div className="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-900 bg-opacity-70 dark:bg-opacity-70 z-40">
@@ -237,7 +571,7 @@ export default function IndiaMap() {
           </div>
         )}
 
-        {/* ✨ NEW: Map Container with Colored Square Border - Smaller Box */}
+        {/* ✨ Map Container with Colored Square Border */}
         <div className="relative w-[82%] h-[75vh] border-3 border-cyan-500 dark:border-cyan-400 rounded-lg shadow-xl overflow-hidden">
           <ComposableMap
             key={mapKey}
@@ -260,7 +594,7 @@ export default function IndiaMap() {
                       const [base, dark] = colorPairs[i % colorPairs.length];
                       const centroid = geoCentroid(geo);
                       return (
-                        <g key={geo.rsmKey} onMouseEnter={() => setHovered(name)} onMouseLeave={() => setHovered(null)} onClick={() => handleStateClick(name)} style={{ cursor: "pointer" }}>
+                        <g key={geo.rsmKey} onMouseEnter={(e) => handleStateHover(name, e)} onMouseLeave={() => handleStateHover(null)} onMouseMove={(e) => setMousePosition({ x: e.clientX, y: e.clientY })} onClick={() => handleStateClick(name)} style={{ cursor: "pointer" }}>
                           <Geography 
                             geography={geo} 
                             style={{ 
@@ -321,7 +655,7 @@ export default function IndiaMap() {
                       const centroid = geoCentroid(geo);
 
                       return (
-                        <g key={geo.rsmKey} onMouseEnter={() => setHovered(districtName)} onMouseLeave={() => setHovered(null)} onClick={() => handleDistrictClick(geo)} style={{ cursor: "pointer" }}>
+                        <g key={geo.rsmKey} onMouseEnter={(e) => handleDistrictHover(districtName, e)} onMouseLeave={() => handleDistrictHover(null)} onMouseMove={(e) => setMousePosition({ x: e.clientX, y: e.clientY })} onClick={() => handleDistrictClick(geo)} style={{ cursor: "pointer" }}>
                           <Geography 
                             geography={geo} 
                             style={{ 
@@ -406,11 +740,31 @@ export default function IndiaMap() {
         )}
       </AnimatePresence>
 
-      {/* ✨ Hover Tooltip */}
+      {/* ✨ Hover Tooltip - Follows Mouse */}
       <AnimatePresence>
         {hovered && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ duration: 0.2 }} className="absolute bottom-8 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-lg px-5 py-2 rounded-lg border-2 border-cyan-300 dark:border-cyan-600">
-            <span className="font-semibold">{hovered}</span>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.8 }} 
+            animate={{ opacity: 1, scale: 1 }} 
+            exit={{ opacity: 0, scale: 0.8 }} 
+            transition={{ duration: 0.15 }}
+            style={{
+              position: 'fixed',
+              left: `${mousePosition.x + 15}px`,
+              top: `${mousePosition.y + 15}px`,
+              pointerEvents: 'none',
+              zIndex: 9999,
+            }}
+            className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-2xl px-4 py-3 rounded-xl border-2 border-cyan-400 dark:border-cyan-500"
+          >
+            <div className="flex flex-col gap-1">
+              <span className="font-bold text-base">{hovered}</span>
+              {hoveredCount !== null && (
+                <span className="text-sm text-cyan-600 dark:text-cyan-400 font-semibold">
+                  {hoveredCount} {hoveredCount === 1 ? 'Registration' : 'Registrations'}
+                </span>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

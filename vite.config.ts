@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
       open: true,
       proxy: {
         "/api": {
-          target: env.VITE_API_BASE_URL,
+          target: env.VITE_API_BASE_URL || "http://localhost:8080", // 👈 Spring Boot backend
           changeOrigin: true,
           secure: false,
         },

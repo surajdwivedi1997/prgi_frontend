@@ -4,7 +4,6 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import Header from "../components/layout/Header";
-import { apiFetch } from "@/lib/api";
 import {
   Loader2,
   Search,
@@ -42,6 +41,7 @@ export default function AdminTitleManagement() {
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
+    console.log("Component mounted, calling loadTitles");
     loadTitles();
   }, []);
 
@@ -49,33 +49,55 @@ export default function AdminTitleManagement() {
     filterTitles();
   }, [titles, statusFilter, searchQuery]);
 
-  // ✅ Fetch all titles
   const loadTitles = async () => {
-    try {
-      setLoading(true);
-      const data = await apiFetch<Title[]>("publications");
+    console.log("=== loadTitles START ===");
+    console.log("Token:", localStorage.getItem("jwtToken"));
+    
+  try {
+  setLoading(true);
+  console.log("About to fetch /api/publications");
+
+  const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+  const response = await fetch(`${BASE_URL}/api/publications`, {
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
+    },
+  });
+      
+      console.log("Response received:", response.status, response.statusText);
+      
+      if (!response.ok) {
+        console.error("Response status:", response.status);
+        const errorText = await response.text();
+        console.error("Response text:", errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log("Loaded titles:", data);
+      console.log("Number of titles:", data.length);
       setTitles(data);
     } catch (error) {
       console.error("Failed to load titles:", error);
-      alert("Failed to load titles. Please log in again.");
+      alert("Failed to load titles. Please try logging in again.");
     } finally {
       setLoading(false);
+      console.log("=== loadTitles END ===");
     }
   };
 
   const filterTitles = () => {
-    let filtered = [...titles];
+    let filtered = titles;
 
     if (statusFilter !== "ALL") {
       filtered = filtered.filter((title) => title.status === statusFilter);
     }
 
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (title) =>
-          title.titleName.toLowerCase().includes(query) ||
-          title.state.toLowerCase().includes(query)
+      filtered = filtered.filter((title) =>
+        title.titleName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        title.state.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -89,7 +111,6 @@ export default function AdminTitleManagement() {
     setShowModal(true);
   };
 
-  // ✅ Approve / Reject / Objection handler
   const handleAction = async () => {
     if (!selectedTitle) return;
 
@@ -98,37 +119,37 @@ export default function AdminTitleManagement() {
       return;
     }
 
-    try {
-      setActionLoading(true);
+   try {
+  setActionLoading(true);
 
-      const newStatus =
-        modalAction === "approve"
-          ? "APPROVED"
-          : modalAction === "reject"
-          ? "REJECTED"
-          : "OBJECTED";
+  const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-      await apiFetch(
-        `publications/${selectedTitle.id}/status?status=${newStatus}&remarks=${encodeURIComponent(
-          remarks
-        )}`,
-        { method: "PATCH" }
-      );
+  const newStatus =
+    modalAction === "approve"
+      ? "APPROVED"
+      : modalAction === "reject"
+      ? "REJECTED"
+      : "OBJECTED";
 
-      alert(
-        `Title ${
-          modalAction === "approve"
-            ? "approved"
-            : modalAction === "reject"
-            ? "rejected"
-            : "marked with objection"
-        } successfully`
-      );
+  const response = await fetch(
+    `${BASE_URL}/api/publications/${selectedTitle.id}/status?status=${newStatus}&remarks=${encodeURIComponent(remarks)}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
+      },
+    }
+  );
 
-      setShowModal(false);
-      setRemarks("");
-      setSelectedTitle(null);
-      await loadTitles();
+      if (response.ok) {
+        alert(`Title ${modalAction === "approve" ? "approved" : modalAction === "reject" ? "rejected" : "marked with objection"} successfully`);
+        setShowModal(false);
+        setRemarks("");
+        setSelectedTitle(null);
+        loadTitles();
+      } else {
+        throw new Error("Action failed");
+      }
     } catch (error) {
       console.error("Failed to update title:", error);
       alert("Failed to update title status");
@@ -164,12 +185,13 @@ export default function AdminTitleManagement() {
     ceased: titles.filter((t) => t.status === "CEASED").length,
   };
 
+  console.log("Rendering component - titles count:", titles.length);
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
 
       <main className="container mx-auto px-4 py-8">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Title Management</h1>
           <p className="text-muted-foreground">
@@ -216,24 +238,41 @@ export default function AdminTitleManagement() {
               </div>
             </div>
             <div className="flex gap-2 flex-wrap">
-              {(
-                [
-                  ["ALL", stats.total],
-                  ["PENDING", stats.reserved],
-                  ["APPROVED", stats.registered],
-                  ["OBJECTED", stats.objected],
-                  ["CEASED", stats.ceased],
-                ] as [string, number][]
-              ).map(([key, count]) => (
-                <Button
-                  key={key}
-                  variant={statusFilter === key ? "default" : "outline"}
-                  onClick={() => setStatusFilter(key)} // ✅ Type-safe now
-                  size="sm"
-                >
-                  {key.charAt(0) + key.slice(1).toLowerCase()} ({count})
-                </Button>
-              ))}
+              <Button
+                variant={statusFilter === "ALL" ? "default" : "outline"}
+                onClick={() => setStatusFilter("ALL")}
+                size="sm"
+              >
+                All ({stats.total})
+              </Button>
+              <Button
+                variant={statusFilter === "PENDING" ? "default" : "outline"}
+                onClick={() => setStatusFilter("PENDING")}
+                size="sm"
+              >
+                Pending ({stats.reserved})
+              </Button>
+              <Button
+                variant={statusFilter === "APPROVED" ? "default" : "outline"}
+                onClick={() => setStatusFilter("APPROVED")}
+                size="sm"
+              >
+                Approved ({stats.registered})
+              </Button>
+              <Button
+                variant={statusFilter === "OBJECTED" ? "default" : "outline"}
+                onClick={() => setStatusFilter("OBJECTED")}
+                size="sm"
+              >
+                Objected ({stats.objected})
+              </Button>
+              <Button
+                variant={statusFilter === "CEASED" ? "default" : "outline"}
+                onClick={() => setStatusFilter("CEASED")}
+                size="sm"
+              >
+                Ceased ({stats.ceased})
+              </Button>
             </div>
           </div>
         </Card>

@@ -23,10 +23,18 @@ export async function apiFetch<T = unknown>(path: string, opts: ApiOptions = {})
   const token = localStorage.getItem("jwtToken");
   if (useAuth && token) headers.set("Authorization", `Bearer ${token}`);
 
+  console.log(`[apiFetch] 🚀 Request to: ${url}`);
+  console.log(`[apiFetch] Method: ${opts.method || 'GET'}`);
+  console.log(`[apiFetch] Auth: ${useAuth}, Token present: ${!!token}`);
+
   const res = await fetch(url, { ...opts, headers });
+
+  console.log(`[apiFetch] ✅ Response status: ${res.status}`);
+  console.log(`[apiFetch] Response ok: ${res.ok}`);
 
   if (res.status === 401) {
     // auto logout
+    console.log("[apiFetch] 🔒 Unauthorized - clearing storage and redirecting to login");
     localStorage.clear();
     sessionStorage.clear();
     window.location.href = "/login";
@@ -34,11 +42,21 @@ export async function apiFetch<T = unknown>(path: string, opts: ApiOptions = {})
   }
 
   if (!res.ok) {
-    throw new Error(await res.text().catch(() => res.statusText));
+    const errorText = await res.text().catch(() => res.statusText);
+    console.error(`[apiFetch] ❌ Error response:`, errorText);
+    throw new Error(errorText);
   }
 
   const ct = res.headers.get("content-type") || "";
-  return (ct.includes("application/json")
-    ? res.json()
-    : (res.text() as any)) as Promise<T>;
+  console.log(`[apiFetch] Content-Type: ${ct}`);
+  
+  const data = (ct.includes("application/json")
+    ? await res.json()
+    : await res.text()) as T;
+  
+  console.log(`[apiFetch] 📦 Parsed response data:`, data);
+  console.log(`[apiFetch] Data type:`, typeof data);
+  console.log(`[apiFetch] Data keys:`, data && typeof data === 'object' ? Object.keys(data) : 'N/A');
+  
+  return data;
 }
