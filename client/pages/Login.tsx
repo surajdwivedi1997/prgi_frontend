@@ -27,7 +27,6 @@ export default function Login() {
     try {
       console.log("Making API call to /api/auth/login");
       
-      // ✅ Using raw fetch instead of apiFetch to fix token issue
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
@@ -38,6 +37,7 @@ export default function Login() {
 
       console.log("Response status:", response.status);
       console.log("Response ok:", response.ok);
+      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -46,23 +46,48 @@ export default function Login() {
         throw new Error(errorText || `HTTP ${response.status}: Login failed`);
       }
 
-      // ✅ Parse JSON from response
-      const data = await response.json();
+      // ✅ Check if response has content before parsing JSON
+      const contentType = response.headers.get("content-type");
+      const contentLength = response.headers.get("content-length");
       
-      console.log("Login successful! Full Response:", data);
-      console.log("Token received:", data.token);
-      console.log("User ID:", data.id);
-      console.log("Role:", data.role);
-      console.log("Can Access Details:", data.canAccessDetails);
+      console.log("Content-Type:", contentType);
+      console.log("Content-Length:", contentLength);
 
-      // ✅ Validate that we have a token
+      // Get the raw text first to see what we're dealing with
+      const responseText = await response.text();
+      console.log("Raw response text:", responseText);
+      console.log("Response text length:", responseText.length);
+
+      // Check if response is empty
+      if (!responseText || responseText.trim().length === 0) {
+        console.error("❌ Backend returned empty response body!");
+        throw new Error("Server returned empty response. Please check backend logs.");
+      }
+
+      // Try to parse JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log("✅ Parsed JSON successfully:", data);
+      } catch (parseError) {
+        console.error("❌ Failed to parse JSON:", parseError);
+        console.error("Response was:", responseText);
+        throw new Error("Server returned invalid JSON. Response: " + responseText.substring(0, 100));
+      }
+
+      // Validate that we have a token
       if (!data.token) {
-        console.error("❌ No token returned from backend!");
+        console.error("❌ No token in response!");
         console.error("Response data:", JSON.stringify(data, null, 2));
         throw new Error("No authentication token received from server");
       }
 
-      // ✅ Save token + user info to localStorage
+      console.log("✅ Token received:", data.token);
+      console.log("User ID:", data.id);
+      console.log("Role:", data.role);
+      console.log("Can Access Details:", data.canAccessDetails);
+
+      // Save token + user info to localStorage
       localStorage.setItem("jwtToken", data.token);
       localStorage.setItem("userId", String(data.id));
       localStorage.setItem("userEmail", data.email);
@@ -70,7 +95,6 @@ export default function Login() {
       localStorage.setItem("canAccessDetails", String(Boolean(data.canAccessDetails)));
 
       console.log("✅ Token saved to localStorage");
-      console.log("Stored token:", localStorage.getItem("jwtToken"));
       console.log("Navigating to dashboard...");
 
       // Navigate to dashboard
@@ -129,7 +153,6 @@ export default function Login() {
                   alt="PRGI Logo" 
                   className="w-48 h-48 object-contain"
                   onError={(e) => {
-                    // Fallback if image doesn't load
                     e.currentTarget.style.display = 'none';
                   }}
                 />
